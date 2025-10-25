@@ -16,12 +16,12 @@ export async function fetchRevenue() {
     // Artificially delay a response for demo purposes.
     // Don't do this in production :)
 
-    // console.log('Fetching revenue data...');
-    // await new Promise((resolve) => setTimeout(resolve, 3000));
+    console.log('Fetching revenue data...');
+    await new Promise((resolve) => setTimeout(resolve, 3000));
 
     const data = await sql<Revenue[]>`SELECT * FROM revenue`;
 
-    // console.log('Data fetch completed after 3 seconds.');
+    console.log('Data fetch completed after 3 seconds.');
 
     return data;
   } catch (error) {
@@ -38,7 +38,7 @@ export async function fetchLatestInvoices() {
       JOIN customers ON invoices.customer_id = customers.id
       ORDER BY invoices.date DESC
       LIMIT 5`;
-
+    // console.log(data);
     const latestInvoices = data.map((invoice) => ({
       ...invoice,
       amount: formatCurrency(invoice.amount),
@@ -154,18 +154,29 @@ export async function fetchInvoiceById(id: string) {
       WHERE invoices.id = ${id};
     `;
 
-    const invoice = data.map((invoice) => ({
-      ...invoice,
-      // Convert amount from cents to dollars
-      amount: invoice.amount / 100,
-    }));
+    if (!data || data.length === 0) {
+      console.error('Invoice not found for id:', id);
+      return null;
+    }
 
-    return invoice[0];
+    const invoice = {
+      ...data[0],
+      // Convert amount from cents to dollars
+      amount: data[0].amount / 100,
+    };
+
+    return invoice;
   } catch (error) {
+    if ((error as { code?: string })?.code === '22P02') { // Postgres invalid_text_representation (bad UUID syntax)
+      console.error('Invalid UUID format for invoice id:', id);
+      return null;
+    }
     console.error('Database Error:', error);
-    throw new Error('Failed to fetch invoice.');
+    return null;
+    // throw new Error('Failed to fetch invoice.');
   }
 }
+
 
 export async function fetchCustomers() {
   try {
